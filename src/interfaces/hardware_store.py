@@ -8,6 +8,8 @@ from ..pages.product import ProductManagementFrame
 from ..pages.categories import CategoriesFrame
 from ..pages.dashboard import DashboardFrame
 from ..pages.checkout import CheckoutFrame
+from ..pages.admin import AdminFrame
+from ..pages.users import UsersFrame
 
 class ProfileDialog(ctk.CTkToplevel):
     def __init__(self, parent, username):
@@ -173,6 +175,10 @@ class MainWindow(ctk.CTk):
             CategoriesFrame(self.content_frame).pack(fill="both", expand=True)
         elif content_type == "checkout":
             CheckoutFrame(self.content_frame).pack(fill="both", expand=True)
+        elif content_type == "admin":
+            AdminFrame(self.content_frame).pack(fill="both", expand=True)
+        elif content_type == "users":
+            UsersFrame(self.content_frame).pack(fill="both", expand=True)
 
     def on_closing(self):
         # Close database connection

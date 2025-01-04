@@ -1,5 +1,5 @@
 import sqlite3
-from db_config import get_db_connection
+from src.database.db_config import get_db_connection
 
 def seed_categories(admin_id):
     """Seed initial categories"""
@@ -135,99 +135,137 @@ def seed_products(admin_id):
         finally:
             conn.close()
 
-def seed_sample_users(admin_id):
-    """Seed sample users"""
+def seed_sample_users():
+    """Seed sample users for testing"""
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
         try:
-            # List of sample users
+            # Create regular users with loyalty points and purchases
             users = [
-                ("John Doe", "555-0101", "john@example.com"),
-                ("Jane Smith", "555-0102", "jane@example.com"),
-                ("Bob Wilson", "555-0103", "bob@example.com"),
-                ("Alice Johnson", "555-0104", "alice@example.com"),
-                ("Charlie Brown", "555-0105", "charlie@example.com"),
-                ("Diana Prince", "555-0106", "diana@example.com"),
-                ("Edward Stone", "555-0107", "edward@example.com"),
-                ("Fiona Green", "555-0108", "fiona@example.com"),
-                ("George Miller", "555-0109", "george@example.com"),
-                ("Helen Davis", "555-0110", "helen@example.com")
+                ("John Smith", "123-456-7890", "john@email.com", 10, 150.50),  # 10 loyalty points
+                ("Sarah Johnson", "234-567-8901", "sarah@email.com", 30, 450.75),  # 30 loyalty points
+                ("Mike Wilson", "345-678-9012", "mike@email.com", 15, 200.25),  # 15 loyalty points
+                ("Emma Davis", "456-789-0123", "emma@email.com", 25, 350.00)   # 25 loyalty points
             ]
-
+            
             # Insert users
-            for name, phone, email in users:
+            for name, phone, email, loyalty_points, total_spent in users:
                 cursor.execute("""
-                    INSERT OR IGNORE INTO users (name, phone, email, created_by)
-                    VALUES (?, ?, ?, ?)
-                """, (name, phone, email, admin_id))
+                    INSERT INTO users (name, phone, email, loyalty_points, total_spent)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (name, phone, email, loyalty_points, total_spent))
+            
+            # Get products for purchases
+            cursor.execute("SELECT id, price FROM products")
+            products = cursor.fetchall()
+            
+            if products:
+                # Create purchases for users
+                cursor.execute("SELECT id FROM users")
+                user_ids = cursor.fetchall()
+                
+                import random
+                from datetime import datetime, timedelta
+                
+                # Create purchases over the last 30 days
+                for user_id in user_ids:
+                    # Number of purchases (10-30 purchases per user)
+                    num_purchases = random.randint(10, 30)
+                    
+                    for _ in range(num_purchases):
+                        # Create the purchase first
+                        total_amount = 0
+                        points_earned = random.randint(1, 5)  # Random points earned
+                        
+                        cursor.execute("""
+                            INSERT INTO purchases (user_id, total_amount, points_earned)
+                            VALUES (?, ?, ?)
+                        """, (user_id[0], total_amount, points_earned))
+                        
+                        purchase_id = cursor.lastrowid
+                        
+                        # Add 1-3 items to each purchase
+                        num_items = random.randint(1, 3)
+                        purchase_total = 0
+                        
+                        for _ in range(num_items):
+                            # Random product and quantity
+                            product = random.choice(products)
+                            quantity = random.randint(1, 5)
+                            price_per_unit = product[1]
+                            item_total = price_per_unit * quantity
+                            purchase_total += item_total
+                            
+                            cursor.execute("""
+                                INSERT INTO purchase_items (purchase_id, product_id, quantity, price_per_unit)
+                                VALUES (?, ?, ?, ?)
+                            """, (purchase_id, product[0], quantity, price_per_unit))
+                        
+                        # Update the purchase total
+                        cursor.execute("""
+                            UPDATE purchases 
+                            SET total_amount = ?
+                            WHERE id = ?
+                        """, (purchase_total, purchase_id))
+                        
+                        # Update user's total_spent
+                        cursor.execute("""
+                            UPDATE users 
+                            SET total_spent = total_spent + ?
+                            WHERE id = ?
+                        """, (purchase_total, user_id[0]))
             
             conn.commit()
-            print("Sample users seeded successfully")
+            print("Sample users and their purchases seeded successfully")
             
         except sqlite3.Error as err:
-            print(f"Error seeding users: {err}")
+            print(f"Error seeding sample users: {err}")
         finally:
             conn.close()
 
-def seed_all(admin_id):
+def seed_all():
     """Seed all initial data"""
     conn = get_db_connection()
     if conn:
-        cursor = conn.cursor()
         try:
-            # Seed all data
+            # First seed the categories and products
+            admin_id = create_admin('admin', 'admin123', 'admin')
             seed_categories(admin_id)
             seed_products(admin_id)
-            seed_sample_users(admin_id)
+            
+            # Then seed the users and their purchases
+            seed_sample_users()
             
             print("All data seeded successfully")
             
-        except sqlite3.Error as err:
-            print(f"Error in seed_all: {err}")
+        except Exception as e:
+            print(f"Error seeding data: {e}")
         finally:
             conn.close()
 
-def create_admin(username, password):
-    """Create an admin user with the specified credentials or update if exists"""
+def create_admin(username, password, role='admin'):
+    """Create an admin user with the specified credentials"""
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
         try:
-            # Check if user exists
-            cursor.execute("SELECT id FROM admin WHERE username = ?", (username,))
-            result = cursor.fetchone()
-            
-            if result:
-                # Update existing user's password
-                cursor.execute("""
-                    UPDATE admin SET password = ? WHERE username = ?
-                """, (password, username))
-                admin_id = result[0]
-                print("Admin user password updated successfully")
-            else:
-                # Create new user
-                cursor.execute("""
-                    INSERT INTO admin (username, password)
-                    VALUES (?, ?)
-                """, (username, password))
-                admin_id = cursor.lastrowid
-                print("Admin user created successfully")
+            # Insert or update admin
+            cursor.execute("""
+                INSERT OR REPLACE INTO admin (username, password, role)
+                VALUES (?, ?, ?)
+            """, (username, password, role))
             
             conn.commit()
+            admin_id = cursor.lastrowid
+            print(f"Admin user '{username}' created/updated successfully")
             return admin_id
             
         except sqlite3.Error as err:
-            print(f"Error managing admin user: {err}")
+            print(f"Error creating admin user: {err}")
             return None
         finally:
             conn.close()
 
 if __name__ == "__main__":
-    # Create admin users
-    admin1_id = create_admin('admin1', 'admin123')
-    admin2_id = create_admin('admin2', 'admin456')
-    admin3_id = create_admin('admin3', 'admin789')
-    
-    if admin1_id:
-        seed_all(admin1_id)
+    seed_all()

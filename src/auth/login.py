@@ -25,22 +25,18 @@ class LoginFrame(ctk.CTkFrame):
         title_label.pack(pady=(40, 30))
 
         # Username
-        self.username_var = tk.StringVar()
         self.username_entry = ctk.CTkEntry(
             self,
             placeholder_text="Username",
-            width=300,
-            textvariable=self.username_var
+            width=300
         )
         self.username_entry.pack(pady=(0, 20))
 
         # Password
-        self.password_var = tk.StringVar()
         self.password_entry = ctk.CTkEntry(
             self,
             placeholder_text="Password",
             width=300,
-            textvariable=self.password_var,
             show="●"
         )
         self.password_entry.pack(pady=(0, 30))
@@ -49,9 +45,8 @@ class LoginFrame(ctk.CTkFrame):
         login_button = ctk.CTkButton(
             self,
             text="Login",
-            width=300,
             command=self.login,
-            font=ctk.CTkFont(size=15, weight="bold")
+            width=200
         )
         login_button.pack(pady=(0, 20))
 
@@ -67,8 +62,10 @@ class LoginFrame(ctk.CTkFrame):
         forgot_password_link.bind("<Button-1>", lambda e: self.show_forgot_password())
 
     def login(self):
-        username = self.username_var.get().strip()
-        password = self.password_var.get().strip()
+        username = self.username_entry.get().strip()
+        password = self.password_entry.get().strip()
+
+        print(f"Attempting login with username: {username}")  # Debug print
 
         if not username or not password:
             messagebox.showerror("Error", "Please enter both username and password")
@@ -78,12 +75,23 @@ class LoginFrame(ctk.CTkFrame):
         if conn:
             try:
                 cursor = conn.cursor()
-                cursor.execute("SELECT id, password FROM admin WHERE username = ? AND password = ?", (username, password))
+                cursor.execute("""
+                    SELECT id, username, role 
+                    FROM admin 
+                    WHERE username = ? AND password = ?
+                """, (username, password))
                 user = cursor.fetchone()
 
                 if user:
+                    # Store user info in the controller
+                    self.controller.current_user = {
+                        'id': user[0],
+                        'username': user[1],
+                        'role': user[2]
+                    }
+                    
                     # Login successful
-                    messagebox.showinfo("Success", "Login successful!")
+                    messagebox.showinfo("Success", f"Welcome {username}!")
                     self.open_main_window()
                 else:
                     messagebox.showerror("Error", "Invalid username or password")
@@ -100,17 +108,24 @@ class LoginFrame(ctk.CTkFrame):
         messagebox.showinfo("Info", "Please contact administrator to reset your password")
 
     def open_main_window(self):
-        # Close the login window
+        # Hide login window
         self.controller.withdraw()
         
-        # Open the main window
+        # Create and show main window
         main_window = MainWindow()
         
-        # Set up callback for when main window closes
-        main_window.protocol("WM_DELETE_WINDOW", lambda: self.on_main_window_close(main_window))
+        # Configure main window based on user role
+        if hasattr(self.controller, 'current_user'):
+            main_window.current_user = self.controller.current_user
         
-        main_window.mainloop()
-    
+        # Set up close handler
+        def on_main_window_close():
+            main_window.destroy()
+            self.controller.deiconify()
+        
+        main_window.protocol("WM_DELETE_WINDOW", on_main_window_close)
+        main_window.run()
+
     def on_main_window_close(self, main_window):
         # Destroy the main window
         main_window.destroy()
@@ -122,5 +137,5 @@ class LoginFrame(ctk.CTkFrame):
         self.clear_fields()
 
     def clear_fields(self):
-        self.username_var.set("")
-        self.password_var.set("")
+        self.username_entry.delete(0, tk.END)
+        self.password_entry.delete(0, tk.END)

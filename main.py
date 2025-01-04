@@ -1,3 +1,13 @@
+import customtkinter as ctk
+from src.database.db_config import setup_database
+from src.interfaces.hardware_store import MainWindow
+
+if __name__ == "__main__":
+    # Setup the database
+    setup_database()
+    
+    # Create and run the application
+    app = MainWindow()
 import tkinter as tk
 from src.database.db_config import setup_database
 from src.auth.login import LoginFrame

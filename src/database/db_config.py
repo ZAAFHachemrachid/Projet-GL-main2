@@ -26,6 +26,7 @@ def create_tables():
             username TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL,
             email TEXT,
+            role TEXT DEFAULT 'user',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -104,9 +105,9 @@ def create_tables():
 
     # Create default admin account if it doesn't exist
     cursor.execute("""
-        INSERT OR IGNORE INTO admin (username, password, email)
-        VALUES (?, ?, ?)
-    """, ('admin', 'admin123', 'admin@example.com'))
+        INSERT OR IGNORE INTO admin (username, password, email, role)
+        VALUES (?, ?, ?, ?)
+    """, ('admin', 'admin123', 'admin@example.com', 'admin'))
 
     conn.commit()
     conn.close()

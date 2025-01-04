@@ -107,7 +107,7 @@ class DashboardFrame(ctk.CTkFrame):
         # Pack the treeview after configuring scrollbars
         self.purchase_tree.pack(in_=tree_frame, side="left", fill="both", expand=True)
         
-        # Load initial purchase history
+        # Load purchase history data
         self.load_purchase_history()
     
     def create_metrics_section(self):
@@ -278,63 +278,74 @@ class DashboardFrame(ctk.CTkFrame):
         }
     
     def load_purchase_history(self):
-        """Load and display all purchase history"""
+        """Load purchase history data"""
+        # Clear existing items
+        for item in self.purchase_tree.get_children():
+            self.purchase_tree.delete(item)
+            
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Get all purchases with product details and user information
-            cursor.execute("""
+            # Get recent purchase history with user and product details
+            query = """
                 SELECT 
-                    p.created_at,
-                    u.name as buyer_name,
-                    pr.name as product_name,
-                    pi.quantity,
-                    pi.price_per_unit,
-                    (pi.quantity * pi.price_per_unit) as item_total,
-                    p.points_earned
-                FROM purchases p
-                JOIN users u ON p.user_id = u.id
-                JOIN purchase_items pi ON pi.purchase_id = p.id
-                JOIN products pr ON pi.product_id = pr.id
-                ORDER BY p.created_at DESC
-            """)
+                    u.name as customer_name,
+                    p.name as product_name,
+                    ph.quantity,
+                    ph.total_spent as unit_price,
+                    (ph.quantity * ph.total_spent) as total_amount,
+                    ph.loyalty_points as points,
+                    ph.created_at as purchase_date
+                FROM users u
+                JOIN purchase_history ph ON u.id = ph.user_id
+                JOIN products p ON ph.product_id = p.id
+                ORDER BY ph.created_at DESC
+                LIMIT 50
+            """
             
+            cursor.execute(query)
             purchases = cursor.fetchall()
             
-            # Clear existing items
-            for item in self.purchase_tree.get_children():
-                self.purchase_tree.delete(item)
-            
-            # Insert purchase history data
+            # Format and display purchase data
             for purchase in purchases:
-                try:
-                    # Try parsing the date, if it fails just use it as is
+                customer_name, product_name, quantity, unit_price, total, points, date = purchase
+                
+                # Format date
+                if isinstance(date, str):
                     try:
-                        date = datetime.strptime(purchase[0], '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M')
-                    except (ValueError, TypeError):
-                        date = str(purchase[0])
-                    
-                    self.purchase_tree.insert('', 'end', values=(
-                        date,
-                        purchase[1] or "Unknown",  # Buyer name
-                        purchase[2] or "Unknown",  # Product name
-                        purchase[3] or 0,  # Quantity
-                        f"${purchase[4]:.2f}" if purchase[4] else "$0.00",  # Price per unit
-                        f"${purchase[5]:.2f}" if purchase[5] else "$0.00",  # Total
-                        purchase[6] or 0  # Points earned
-                    ))
-                except Exception as row_error:
-                    print(f"Error processing purchase row: {row_error}")
-                    continue
+                        formatted_date = datetime.strptime(date, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M')
+                    except ValueError:
+                        formatted_date = date
+                else:
+                    formatted_date = date.strftime('%Y-%m-%d %H:%M') if date else "N/A"
+                
+                # Format row data
+                row_data = (
+                    formatted_date,
+                    customer_name or "Unknown",
+                    product_name or "Unknown",
+                    str(quantity) if quantity else "0",
+                    f"${float(unit_price):.2f}" if unit_price else "$0.00",
+                    f"${float(total):.2f}" if total else "$0.00",
+                    str(points) if points else "0"
+                )
+                
+                # Insert into treeview with alternating colors
+                tag = 'even' if len(self.purchase_tree.get_children()) % 2 == 0 else 'odd'
+                self.purchase_tree.insert('', 'end', values=row_data, tags=(tag,))
             
+            # Configure row colors
+            self.purchase_tree.tag_configure('odd', background='#f0f0f0')
+            self.purchase_tree.tag_configure('even', background='white')
+            
+            cursor.close()
             conn.close()
             
         except Exception as e:
             print(f"Error loading purchase history: {e}")
-            # Print the full error traceback for debugging
-            import traceback
-            traceback.print_exc()
+            # Add an error message to the treeview
+            self.purchase_tree.insert('', 'end', values=("Error loading purchase history", "", "", "", "", "", ""))
     
     def refresh(self):
         """Refresh dashboard data"""

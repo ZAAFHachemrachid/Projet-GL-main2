@@ -1,7 +1,6 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox
-from database.db_config import get_db_connection
-import hashlib
+from src.database.db_config import get_db_connection
 import sqlite3
 
 class UsersFrame(ctk.CTkFrame):
@@ -35,14 +34,11 @@ class UsersFrame(ctk.CTkFrame):
         
         ctk.CTkLabel(self.create_frame, text="Create User", font=("Arial", 16, "bold")).pack(pady=5)
         
-        self.name_entry = ctk.CTkEntry(self.create_frame, placeholder_text="name")
+        self.name_entry = ctk.CTkEntry(self.create_frame, placeholder_text="Name")
         self.name_entry.pack(pady=5, padx=10, fill="x")
         
-        self.password_entry = ctk.CTkEntry(self.create_frame, placeholder_text="Password", show="*")
-        self.password_entry.pack(pady=5, padx=10, fill="x")
-        
-        self.confirm_password_entry = ctk.CTkEntry(self.create_frame, placeholder_text="Confirm Password", show="*")
-        self.confirm_password_entry.pack(pady=5, padx=10, fill="x")
+        self.phone_entry = ctk.CTkEntry(self.create_frame, placeholder_text="Phone")
+        self.phone_entry.pack(pady=5, padx=10, fill="x")
         
         self.email_entry = ctk.CTkEntry(self.create_frame, placeholder_text="Email")
         self.email_entry.pack(pady=5, padx=10, fill="x")
@@ -64,20 +60,17 @@ class UsersFrame(ctk.CTkFrame):
         
         ctk.CTkButton(self.update_frame, text="Load User", command=self.load_user).pack(pady=5)
         
-        self.update_name_entry = ctk.CTkEntry(self.update_frame, placeholder_text="New name")
+        self.update_name_entry = ctk.CTkEntry(self.update_frame, placeholder_text="New Name")
         self.update_name_entry.pack(pady=5, padx=10, fill="x")
+        
+        self.update_phone_entry = ctk.CTkEntry(self.update_frame, placeholder_text="New Phone")
+        self.update_phone_entry.pack(pady=5, padx=10, fill="x")
         
         self.update_email_entry = ctk.CTkEntry(self.update_frame, placeholder_text="New Email")
         self.update_email_entry.pack(pady=5, padx=10, fill="x")
         
         self.update_loyalty_points_entry = ctk.CTkEntry(self.update_frame, placeholder_text="New Loyalty Points")
         self.update_loyalty_points_entry.pack(pady=5, padx=10, fill="x")
-        
-        self.update_password_entry = ctk.CTkEntry(self.update_frame, placeholder_text="New Password (optional)", show="*")
-        self.update_password_entry.pack(pady=5, padx=10, fill="x")
-        
-        self.update_confirm_password_entry = ctk.CTkEntry(self.update_frame, placeholder_text="Confirm New Password", show="*")
-        self.update_confirm_password_entry.pack(pady=5, padx=10, fill="x")
         
         ctk.CTkButton(self.update_frame, text="Update", command=self.update_user).pack(pady=10)
         
@@ -99,15 +92,17 @@ class UsersFrame(ctk.CTkFrame):
         self.table_frame.grid_rowconfigure(0, weight=1)
         self.table_frame.grid_columnconfigure(0, weight=1)
         
-        columns = ('ID', 'name', 'Email', 'Loyalty Points', 'Created At')
+        columns = ('ID', 'Name', 'Phone', 'Email', 'Loyalty Points', 'Total Spent', 'Created At')
         self.tree = ttk.Treeview(self.table_frame, columns=columns, show='headings')
         
         # Define headings
         column_widths = {
             'ID': 50,
-            'name': 150,
+            'Name': 150,
+            'Phone': 100,
             'Email': 200,
             'Loyalty Points': 100,
+            'Total Spent': 100,
             'Created At': 150
         }
         
@@ -148,18 +143,13 @@ class UsersFrame(ctk.CTkFrame):
         """Create a new user"""
         try:
             name = self.name_entry.get().strip()
-            password = self.password_entry.get()
-            confirm_password = self.confirm_password_entry.get()
+            phone = self.phone_entry.get().strip()
             email = self.email_entry.get().strip()
             loyalty_points = self.loyalty_points_entry.get().strip() or "0"
             
             # Validate input
-            if not name or not password or not confirm_password:
-                messagebox.showerror("Error", "name and password are required")
-                return
-            
-            if password != confirm_password:
-                messagebox.showerror("Error", "Passwords do not match")
+            if not name:
+                messagebox.showerror("Error", "Name is required")
                 return
             
             try:
@@ -171,16 +161,13 @@ class UsersFrame(ctk.CTkFrame):
                 messagebox.showerror("Error", "Loyalty points must be a valid number")
                 return
             
-            # Hash password
-            hashed_password = hashlib.sha256(password.encode()).hexdigest()
-            
             conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute("""
-                INSERT INTO users (name, password, email, loyalty_points)
-                VALUES (?, ?, ?, ?)
-            """, (name, hashed_password, email, loyalty_points))
+                INSERT INTO users (name, phone, email, loyalty_points, total_spent)
+                VALUES (?, ?, ?, ?, 0.0)
+            """, (name, phone, email, loyalty_points))
             
             conn.commit()
             conn.close()
@@ -190,7 +177,7 @@ class UsersFrame(ctk.CTkFrame):
             messagebox.showinfo("Success", "User created successfully")
             
         except sqlite3.IntegrityError:
-            messagebox.showerror("Error", "name already exists")
+            messagebox.showerror("Error", "Name already exists")
         except Exception as e:
             messagebox.showerror("Error", f"Error creating user: {e}")
     
@@ -206,7 +193,7 @@ class UsersFrame(ctk.CTkFrame):
             cursor = conn.cursor()
             
             cursor.execute("""
-                SELECT name, email, loyalty_points
+                SELECT name, phone, email, loyalty_points
                 FROM users
                 WHERE id = ?
             """, (int(user_id),))
@@ -217,10 +204,12 @@ class UsersFrame(ctk.CTkFrame):
             if user:
                 self.update_name_entry.delete(0, 'end')
                 self.update_name_entry.insert(0, user[0])
+                self.update_phone_entry.delete(0, 'end')
+                self.update_phone_entry.insert(0, user[1] or "")
                 self.update_email_entry.delete(0, 'end')
-                self.update_email_entry.insert(0, user[1] or "")
+                self.update_email_entry.insert(0, user[2] or "")
                 self.update_loyalty_points_entry.delete(0, 'end')
-                self.update_loyalty_points_entry.insert(0, str(user[2]))
+                self.update_loyalty_points_entry.insert(0, str(user[3]))
             else:
                 messagebox.showerror("Error", "User not found")
                 
@@ -232,13 +221,12 @@ class UsersFrame(ctk.CTkFrame):
         try:
             user_id = self.update_id_entry.get()
             new_name = self.update_name_entry.get().strip()
+            new_phone = self.update_phone_entry.get().strip()
             new_email = self.update_email_entry.get().strip()
             new_loyalty_points = self.update_loyalty_points_entry.get().strip()
-            new_password = self.update_password_entry.get()
-            confirm_password = self.update_confirm_password_entry.get()
             
             if not user_id or not new_name:
-                messagebox.showerror("Error", "User ID and name are required")
+                messagebox.showerror("Error", "User ID and Name are required")
                 return
             
             try:
@@ -250,31 +238,14 @@ class UsersFrame(ctk.CTkFrame):
                 messagebox.showerror("Error", "Loyalty points must be a valid number")
                 return
             
-            if new_password:
-                if new_password != confirm_password:
-                    messagebox.showerror("Error", "Passwords do not match")
-                    return
-                
-                # Hash new password
-                hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    UPDATE users
-                    SET name = ?, email = ?, loyalty_points = ?, password = ?
-                    WHERE id = ?
-                """, (new_name, new_email, loyalty_points, hashed_password, int(user_id)))
-            else:
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    UPDATE users
-                    SET name = ?, email = ?, loyalty_points = ?
-                    WHERE id = ?
-                """, (new_name, new_email, loyalty_points, int(user_id)))
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                UPDATE users
+                SET name = ?, phone = ?, email = ?, loyalty_points = ?
+                WHERE id = ?
+            """, (new_name, new_phone, new_email, loyalty_points, int(user_id)))
             
             conn.commit()
             conn.close()
@@ -284,7 +255,7 @@ class UsersFrame(ctk.CTkFrame):
             messagebox.showinfo("Success", "User updated successfully")
             
         except sqlite3.IntegrityError:
-            messagebox.showerror("Error", "name already exists")
+            messagebox.showerror("Error", "Name already exists")
         except Exception as e:
             messagebox.showerror("Error", f"Error updating user: {e}")
     
@@ -338,7 +309,7 @@ class UsersFrame(ctk.CTkFrame):
             cursor = conn.cursor()
             
             cursor.execute("""
-                SELECT id, name, email, loyalty_points, created_at
+                SELECT id, name, phone, email, loyalty_points, total_spent, created_at
                 FROM users
                 ORDER BY name
             """)
@@ -354,8 +325,7 @@ class UsersFrame(ctk.CTkFrame):
     def clear_create_entries(self):
         """Clear create form entries"""
         self.name_entry.delete(0, 'end')
-        self.password_entry.delete(0, 'end')
-        self.confirm_password_entry.delete(0, 'end')
+        self.phone_entry.delete(0, 'end')
         self.email_entry.delete(0, 'end')
         self.loyalty_points_entry.delete(0, 'end')
         self.loyalty_points_entry.insert(0, "0")  # Reset to default value
@@ -364,7 +334,6 @@ class UsersFrame(ctk.CTkFrame):
         """Clear update form entries"""
         self.update_id_entry.delete(0, 'end')
         self.update_name_entry.delete(0, 'end')
+        self.update_phone_entry.delete(0, 'end')
         self.update_email_entry.delete(0, 'end')
         self.update_loyalty_points_entry.delete(0, 'end')
-        self.update_password_entry.delete(0, 'end')
-        self.update_confirm_password_entry.delete(0, 'end')
