@@ -302,7 +302,6 @@ class CheckoutFrame(ctk.CTkFrame):
             
             # Calculate total amount
             total_amount = sum(item['quantity'] * item['price'] for item in self.cart_items)
-            print(f"Total amount: {total_amount}")
             
             # Find or create user
             cursor.execute("SELECT id, loyalty_points, total_spent FROM users WHERE name = ?", (buyer,))
@@ -312,19 +311,17 @@ class CheckoutFrame(ctk.CTkFrame):
                 user_id = user[0]
                 current_points = user[1]
                 current_spent = user[2]
-                print(f"Existing user found - ID: {user_id}, Points: {current_points}, Spent: {current_spent}")
             else:
-                cursor.execute("INSERT INTO users (name) VALUES (?)", (buyer,))
+                # Create new user with default admin as creator
+                cursor.execute("INSERT INTO users (name, created_by) VALUES (?, 1)", (buyer,))
                 user_id = cursor.lastrowid
                 current_points = 0
                 current_spent = 0.0
-                print(f"New user created - ID: {user_id}")
             
             # Calculate new loyalty points (10 points per $100 spent)
             new_points = int((total_amount / 100) * 10)
             total_points = current_points + new_points
             total_spent = current_spent + total_amount
-            print(f"Points calculation - New: {new_points}, Total: {total_points}, Total Spent: {total_spent}")
             
             # Update user's loyalty points and total spent
             cursor.execute("""
@@ -332,7 +329,6 @@ class CheckoutFrame(ctk.CTkFrame):
                 SET loyalty_points = ?, total_spent = ?
                 WHERE id = ?
             """, (total_points, total_spent, user_id))
-            print("Updated user loyalty points and total spent")
             
             # Create purchase record
             cursor.execute("""
@@ -341,15 +337,26 @@ class CheckoutFrame(ctk.CTkFrame):
             """, (user_id, total_amount, new_points))
             
             purchase_id = cursor.lastrowid
-            print(f"Created purchase record - ID: {purchase_id}")
             
             # Record individual purchase items
             for item in self.cart_items:
+                item_total = item['quantity'] * item['price']
                 cursor.execute("""
-                    INSERT INTO purchase_items (purchase_id, product_id, quantity, price_per_unit)
-                    VALUES (?, ?, ?, ?)
-                """, (purchase_id, item['id'], item['quantity'], item['price']))
-                print(f"Added purchase item - Product: {item['id']}, Quantity: {item['quantity']}, Price: {item['price']}")
+                    INSERT INTO purchase_details (
+                        purchase_id, 
+                        product_id, 
+                        quantity, 
+                        unit_price, 
+                        total_price
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    purchase_id, 
+                    item['id'], 
+                    item['quantity'], 
+                    item['price'],
+                    item_total
+                ))
                 
                 # Update product quantities
                 cursor.execute("""
@@ -357,11 +364,8 @@ class CheckoutFrame(ctk.CTkFrame):
                     SET quantity = quantity - ?
                     WHERE id = ?
                 """, (item['quantity'], item['id']))
-                print(f"Updated product quantity - Product: {item['id']}, Reduced by: {item['quantity']}")
             
             conn.commit()
-            print("Transaction committed successfully")
-            conn.close()
             
             # Show success message with points earned
             messagebox.showinfo(
@@ -378,14 +382,16 @@ class CheckoutFrame(ctk.CTkFrame):
             
             # Refresh dashboard if it exists
             if hasattr(self.parent, 'show_content'):
-                print("Refreshing dashboard")
                 self.parent.show_content('dashboard')
             
         except Exception as e:
             print(f"Error completing purchase: {e}")
-            import traceback
-            traceback.print_exc()
             messagebox.showerror("Error", f"Error completing purchase: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                conn.close()
     
     def cancel_purchase(self):
         if messagebox.askyesno("Cancel Purchase", "Are you sure you want to cancel this purchase?"):

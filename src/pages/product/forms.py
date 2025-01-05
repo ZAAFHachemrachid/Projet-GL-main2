@@ -11,47 +11,51 @@ class CreateForm(BaseForm):
     def __init__(self, parent, product_manager, refresh_callback):
         super().__init__(parent, product_manager, refresh_callback)
         
+        # Create a scrollable frame
+        self.scroll_frame = ctk.CTkScrollableFrame(self)
+        self.scroll_frame.pack(expand=True, fill="both", padx=5, pady=5)
+        
         # Title
-        ctk.CTkLabel(self, text="Create Product", font=("Arial", 16, "bold")).pack(pady=5)
+        ctk.CTkLabel(self.scroll_frame, text="Create Product", font=("Arial", 16, "bold")).pack(pady=5)
         
         # SKU Field
-        ctk.CTkLabel(self, text="SKU:").pack(pady=5, padx=10, anchor="w")
-        self.sku_entry = ctk.CTkEntry(self)
+        ctk.CTkLabel(self.scroll_frame, text="SKU:").pack(pady=5, padx=10, anchor="w")
+        self.sku_entry = ctk.CTkEntry(self.scroll_frame)
         self.sku_entry.pack(pady=5, padx=10, fill="x")
         
         # Name Field
-        ctk.CTkLabel(self, text="Name:").pack(pady=5, padx=10, anchor="w")
-        self.name_entry = ctk.CTkEntry(self)
+        ctk.CTkLabel(self.scroll_frame, text="Name:").pack(pady=5, padx=10, anchor="w")
+        self.name_entry = ctk.CTkEntry(self.scroll_frame)
         self.name_entry.pack(pady=5, padx=10, fill="x")
         
         # Description Field
-        ctk.CTkLabel(self, text="Description:").pack(pady=5, padx=10, anchor="w")
-        self.description_entry = ctk.CTkEntry(self)
+        ctk.CTkLabel(self.scroll_frame, text="Description:").pack(pady=5, padx=10, anchor="w")
+        self.description_entry = ctk.CTkEntry(self.scroll_frame)
         self.description_entry.pack(pady=5, padx=10, fill="x")
         
         # Price Field
-        ctk.CTkLabel(self, text="Price:").pack(pady=5, padx=10, anchor="w")
-        self.price_entry = ctk.CTkEntry(self)
+        ctk.CTkLabel(self.scroll_frame, text="Price:").pack(pady=5, padx=10, anchor="w")
+        self.price_entry = ctk.CTkEntry(self.scroll_frame)
         self.price_entry.pack(pady=5, padx=10, fill="x")
         
         # Quantity Field
-        ctk.CTkLabel(self, text="Quantity:").pack(pady=5, padx=10, anchor="w")
-        self.quantity_entry = ctk.CTkEntry(self)
+        ctk.CTkLabel(self.scroll_frame, text="Quantity:").pack(pady=5, padx=10, anchor="w")
+        self.quantity_entry = ctk.CTkEntry(self.scroll_frame)
         self.quantity_entry.pack(pady=5, padx=10, fill="x")
         
         # Min Quantity Field
-        ctk.CTkLabel(self, text="Minimum Quantity:").pack(pady=5, padx=10, anchor="w")
-        self.min_quantity_entry = ctk.CTkEntry(self)
+        ctk.CTkLabel(self.scroll_frame, text="Minimum Quantity:").pack(pady=5, padx=10, anchor="w")
+        self.min_quantity_entry = ctk.CTkEntry(self.scroll_frame)
         self.min_quantity_entry.pack(pady=5, padx=10, fill="x")
         
         # Category Field
-        ctk.CTkLabel(self, text="Category:").pack(pady=5, padx=10, anchor="w")
-        self.category_combobox = ctk.CTkComboBox(self, values=[cat[1] for cat in self.product_manager.categories])
+        ctk.CTkLabel(self.scroll_frame, text="Category:").pack(pady=5, padx=10, anchor="w")
+        self.category_combobox = ctk.CTkComboBox(self.scroll_frame, values=[cat[1] for cat in self.product_manager.categories], state="readonly")
         self.category_combobox.pack(pady=5, padx=10, fill="x")
         
         # Create Button
         ctk.CTkButton(
-            self,
+            self.scroll_frame,
             text="Create",
             command=self.create_product,
             fg_color="#2ecc71",
@@ -98,8 +102,10 @@ class CreateForm(BaseForm):
         self.price_entry.delete(0, 'end')
         self.quantity_entry.delete(0, 'end')
         self.min_quantity_entry.delete(0, 'end')
-        if self.category_combobox['values']:
-            self.category_combobox.set(self.category_combobox['values'][0])
+        # Get the values using get() method and set the first value if available
+        values = self.category_combobox.get()
+        if values:
+            self.category_combobox.set(self.product_manager.categories[0][1] if self.product_manager.categories else '')
 
 class UpdateForm(BaseForm):
     def __init__(self, parent, product_manager, refresh_callback):
@@ -165,7 +171,7 @@ class UpdateForm(BaseForm):
         
         # Category Field
         ctk.CTkLabel(self.fields_frame, text="Category:").pack(pady=5, anchor="w")
-        self.category_combobox = ctk.CTkComboBox(self.fields_frame, values=[cat[1] for cat in self.product_manager.categories])
+        self.category_combobox = ctk.CTkComboBox(self.fields_frame, values=[cat[1] for cat in self.product_manager.categories], state="readonly")
         self.category_combobox.pack(fill="x", pady=5)
         
         # Update Button
@@ -278,8 +284,10 @@ class UpdateForm(BaseForm):
         self.price_entry.delete(0, 'end')
         self.quantity_entry.delete(0, 'end')
         self.min_quantity_entry.delete(0, 'end')
-        if self.category_combobox['values']:
-            self.category_combobox.set(self.category_combobox['values'][0])
+        # Get the values using get() method and set the first value if available
+        values = self.category_combobox.get()
+        if values:
+            self.category_combobox.set(self.product_manager.categories[0][1] if self.product_manager.categories else '')
 
 class DeleteForm(BaseForm):
     def __init__(self, parent, product_manager, refresh_callback):
@@ -325,95 +333,92 @@ class DeleteForm(BaseForm):
             messagebox.showerror("Error", "Invalid product ID")
 
 class SearchForm(BaseForm):
-    def __init__(self, parent, product_manager, refresh_callback):
+    def __init__(self, parent, product_manager, refresh_callback=None):
         super().__init__(parent, product_manager, refresh_callback)
         
-        # Title
-        ctk.CTkLabel(self, text="Search Products", font=("Arial", 16, "bold")).pack(pady=5)
+        # Create search frame
+        search_frame = ctk.CTkFrame(self)
+        search_frame.pack(fill="x", padx=5, pady=5)
+
+        # Search row
+        search_row = ctk.CTkFrame(search_frame)
+        search_row.pack(fill="x", padx=5, pady=(5,0))
         
-        # Search Field
-        ctk.CTkLabel(self, text="Search:").pack(pady=5, padx=10, anchor="w")
-        self.search_entry = ctk.CTkEntry(self)
-        self.search_entry.pack(pady=5, padx=10, fill="x")
-        
-        # Category Filter
-        ctk.CTkLabel(self, text="Category:").pack(pady=5, padx=10, anchor="w")
-        self.category_var = ctk.StringVar(value="")
-        categories = ["", "All"]
-        if self.product_manager and self.product_manager.categories:
-            categories.extend([cat[1] for cat in self.product_manager.categories])
-        self.category_combobox = ctk.CTkComboBox(
-            self,
-            values=categories,
-            variable=self.category_var
-        )
-        self.category_combobox.pack(pady=5, padx=10, fill="x")
-        
-        # Stock Status Filter
-        ctk.CTkLabel(self, text="Stock Status:").pack(pady=5, padx=10, anchor="w")
-        self.stock_status_var = ctk.StringVar(value="All")
-        self.stock_status_combobox = ctk.CTkComboBox(
-            self,
-            values=["All", "In Stock", "Low Stock"],
-            variable=self.stock_status_var
-        )
-        self.stock_status_combobox.pack(pady=5, padx=10, fill="x")
-        
-        # Sort By
-        ctk.CTkLabel(self, text="Sort By:").pack(pady=5, padx=10, anchor="w")
-        self.sort_var = ctk.StringVar(value="Name (A-Z)")
-        self.sort_combobox = ctk.CTkComboBox(
-            self,
-            values=[
-                "Name (A-Z)",
-                "Name (Z-A)",
-                "Price (Low-High)",
-                "Price (High-Low)",
-                "Stock (Low-High)",
-                "Stock (High-Low)"
-            ],
-            variable=self.sort_var
-        )
-        self.sort_combobox.pack(pady=5, padx=10, fill="x")
-        
-        # Search Button
-        ctk.CTkButton(
-            self,
-            text="Search",
+        ctk.CTkLabel(search_row, text="Search:").pack(side="left", padx=(5,2))
+        self.search_entry = ctk.CTkEntry(search_row, width=400)
+        self.search_entry.pack(side="left", fill="x", expand=True, padx=5)
+
+        # Search button
+        search_btn = ctk.CTkButton(
+            search_row, 
+            text="Search", 
             command=self.search_products,
-            fg_color="#3498db",
-            hover_color="#2980b9"
-        ).pack(pady=5, padx=10, fill="x")
-        
-        # Reset Button
-        ctk.CTkButton(
-            self,
-            text="Reset",
-            command=self.reset_search,
-            fg_color="#95a5a6",
-            hover_color="#7f8c8d"
-        ).pack(pady=5, padx=10, fill="x")
-    
+            width=100
+        )
+        search_btn.pack(side="right", padx=5)
+
+        # Filters row
+        filters_row = ctk.CTkFrame(search_frame)
+        filters_row.pack(fill="x", padx=5, pady=5)
+
+        # Category filter
+        ctk.CTkLabel(filters_row, text="Category:").pack(side="left", padx=(5,2))
+        categories = ['All'] + [cat[1] for cat in self.product_manager.categories]
+        self.category_combo = ctk.CTkComboBox(
+            filters_row, 
+            values=categories,
+            width=150,
+            command=lambda _: self.search_products()
+        )
+        self.category_combo.set("All")
+        self.category_combo.pack(side="left", padx=5)
+
+        # Sort by filter
+        ctk.CTkLabel(filters_row, text="Sort by:").pack(side="left", padx=(15,2))
+        sort_options = [
+            "Name (A-Z)", 
+            "Name (Z-A)", 
+            "Price (Low-High)", 
+            "Price (High-Low)",
+            "Stock (Low-High)",
+            "Stock (High-Low)"
+        ]
+        self.sort_combo = ctk.CTkComboBox(
+            filters_row, 
+            values=sort_options,
+            width=150,
+            command=lambda _: self.search_products()
+        )
+        self.sort_combo.set("Name (A-Z)")
+        self.sort_combo.pack(side="left", padx=5)
+
+        # Stock status filter
+        ctk.CTkLabel(filters_row, text="Stock Status:").pack(side="left", padx=(15,2))
+        stock_options = ["All", "In Stock", "Low Stock"]
+        self.stock_combo = ctk.CTkComboBox(
+            filters_row, 
+            values=stock_options,
+            width=150,
+            command=lambda _: self.search_products()
+        )
+        self.stock_combo.set("All")
+        self.stock_combo.pack(side="left", padx=5)
+
+        # Bind events
+        self.search_entry.bind('<Return>', lambda e: self.search_products())
+
     def search_products(self):
         """Search for products"""
-        # Store search parameters in product manager
-        self.product_manager.current_search = {
+        search_params = {
             'search_term': self.search_entry.get().strip(),
-            'category': self.category_var.get(),
-            'stock_status': self.stock_status_var.get(),
-            'sort_by': self.sort_var.get()
+            'category': self.category_combo.get(),
+            'stock_status': self.stock_combo.get(),
+            'sort_by': self.sort_combo.get()
         }
         
+        # Store search parameters
+        self.product_manager.current_search = search_params
+        
         # Refresh the table
-        if self.refresh_callback:
-            self.refresh_callback()
-    
-    def reset_search(self):
-        """Reset search form"""
-        self.search_entry.delete(0, 'end')
-        self.category_var.set("")
-        self.stock_status_var.set("All")
-        self.sort_var.set("Name (A-Z)")
-        self.product_manager.current_search = None
         if self.refresh_callback:
             self.refresh_callback()

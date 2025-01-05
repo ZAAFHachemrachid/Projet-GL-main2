@@ -41,7 +41,7 @@ class DashboardFrame(ctk.CTkFrame):
         """Setup the dashboard layout"""
         # Configure grid
         self.scrollable_frame.grid_columnconfigure((0,1,2), weight=1)
-        self.scrollable_frame.grid_rowconfigure((1,2), weight=1)
+        self.scrollable_frame.grid_rowconfigure(1, weight=1)
         
         # Title
         ctk.CTkLabel(
@@ -58,57 +58,6 @@ class DashboardFrame(ctk.CTkFrame):
         
         # Create low stock section
         self.create_low_stock_section()
-        
-        # Add Purchase History Section
-        purchase_history_frame = ctk.CTkFrame(self.scrollable_frame)
-        purchase_history_frame.grid(row=2, column=0, columnspan=3, padx=10, pady=10, sticky="nsew")
-        
-        # Purchase History Title
-        ctk.CTkLabel(
-            purchase_history_frame,
-            text="Recent Purchases",
-            font=("Arial", 20, "bold")
-        ).pack(pady=10)
-        
-        # Create Treeview for purchase history
-        columns = ('Date', 'Buyer', 'Product', 'Quantity', 'Price/Unit', 'Total', 'Points')
-        self.purchase_tree = ttk.Treeview(purchase_history_frame, columns=columns, show='headings', height=10)
-        
-        # Define headings
-        column_widths = {
-            'Date': 120,
-            'Buyer': 120,
-            'Product': 150,
-            'Quantity': 80,
-            'Price/Unit': 100,
-            'Total': 100,
-            'Points': 80
-        }
-        
-        for col in columns:
-            self.purchase_tree.heading(col, text=col)
-            self.purchase_tree.column(col, width=column_widths[col])
-        
-        # Add scrollbars in a frame for better organization
-        tree_frame = ctk.CTkFrame(purchase_history_frame, fg_color="transparent")
-        tree_frame.pack(fill="both", expand=True, padx=10, pady=5)
-        
-        # Add vertical scrollbar
-        y_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.purchase_tree.yview)
-        y_scrollbar.pack(side="right", fill="y")
-        
-        # Add horizontal scrollbar
-        x_scrollbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.purchase_tree.xview)
-        x_scrollbar.pack(side="bottom", fill="x")
-        
-        # Configure the treeview to use both scrollbars
-        self.purchase_tree.configure(yscrollcommand=y_scrollbar.set, xscrollcommand=x_scrollbar.set)
-        
-        # Pack the treeview after configuring scrollbars
-        self.purchase_tree.pack(in_=tree_frame, side="left", fill="both", expand=True)
-        
-        # Load purchase history data
-        self.load_purchase_history()
     
     def create_metrics_section(self):
         """Create the metrics cards section"""
@@ -277,76 +226,6 @@ class DashboardFrame(ctk.CTkFrame):
             'low_stock_count': low_stock_count
         }
     
-    def load_purchase_history(self):
-        """Load purchase history data"""
-        # Clear existing items
-        for item in self.purchase_tree.get_children():
-            self.purchase_tree.delete(item)
-            
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            
-            # Get recent purchase history with user and product details
-            query = """
-                SELECT 
-                    u.name as customer_name,
-                    p.name as product_name,
-                    ph.quantity,
-                    ph.total_spent as unit_price,
-                    (ph.quantity * ph.total_spent) as total_amount,
-                    ph.loyalty_points as points,
-                    ph.created_at as purchase_date
-                FROM users u
-                JOIN purchase_history ph ON u.id = ph.user_id
-                JOIN products p ON ph.product_id = p.id
-                ORDER BY ph.created_at DESC
-                LIMIT 50
-            """
-            
-            cursor.execute(query)
-            purchases = cursor.fetchall()
-            
-            # Format and display purchase data
-            for purchase in purchases:
-                customer_name, product_name, quantity, unit_price, total, points, date = purchase
-                
-                # Format date
-                if isinstance(date, str):
-                    try:
-                        formatted_date = datetime.strptime(date, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M')
-                    except ValueError:
-                        formatted_date = date
-                else:
-                    formatted_date = date.strftime('%Y-%m-%d %H:%M') if date else "N/A"
-                
-                # Format row data
-                row_data = (
-                    formatted_date,
-                    customer_name or "Unknown",
-                    product_name or "Unknown",
-                    str(quantity) if quantity else "0",
-                    f"${float(unit_price):.2f}" if unit_price else "$0.00",
-                    f"${float(total):.2f}" if total else "$0.00",
-                    str(points) if points else "0"
-                )
-                
-                # Insert into treeview with alternating colors
-                tag = 'even' if len(self.purchase_tree.get_children()) % 2 == 0 else 'odd'
-                self.purchase_tree.insert('', 'end', values=row_data, tags=(tag,))
-            
-            # Configure row colors
-            self.purchase_tree.tag_configure('odd', background='#f0f0f0')
-            self.purchase_tree.tag_configure('even', background='white')
-            
-            cursor.close()
-            conn.close()
-            
-        except Exception as e:
-            print(f"Error loading purchase history: {e}")
-            # Add an error message to the treeview
-            self.purchase_tree.insert('', 'end', values=("Error loading purchase history", "", "", "", "", "", ""))
-    
     def refresh(self):
         """Refresh dashboard data"""
         # Clear existing widgets
@@ -355,6 +234,3 @@ class DashboardFrame(ctk.CTkFrame):
         
         # Rebuild dashboard
         self.setup_dashboard()
-        
-        # Load purchase history
-        self.load_purchase_history()

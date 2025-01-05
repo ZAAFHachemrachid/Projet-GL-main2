@@ -1,271 +1,182 @@
 import sqlite3
-from src.database.db_config import get_db_connection
+import os
+from pathlib import Path
+from datetime import datetime, timedelta
+import random
 
-def seed_categories(admin_id):
-    """Seed initial categories"""
-    conn = get_db_connection()
-    if conn:
-        cursor = conn.cursor()
-        try:
-            # List of categories
-            categories = [
-                ("Tools", "Hand and power tools"),
-                ("Hardware", "Nuts, bolts, screws, and fasteners"),
-                ("Plumbing", "Pipes, fittings, and plumbing supplies"),
-                ("Electrical", "Wiring, outlets, and electrical components"),
-                ("Paint", "Interior and exterior paints and supplies"),
-                ("Lumber", "Wood and building materials"),
-                ("Garden", "Garden tools and supplies")
-            ]
+# Get the absolute path to the database file
+DB_FILE = os.path.join(Path(__file__).parent.parent.parent, "database.db")
 
-            # Insert categories
-            for name, description in categories:
-                cursor.execute("""
-                    INSERT OR IGNORE INTO category (name, created_by)
-                    VALUES (?, ?)
-                """, (name, admin_id))
-            
-            conn.commit()
-            print("Categories seeded successfully")
-            
-        except sqlite3.Error as err:
-            print(f"Error seeding categories: {err}")
-        finally:
-            conn.close()
+def get_db_connection():
+    """Get a connection to the SQLite database"""
+    try:
+        return sqlite3.connect(DB_FILE)
+    except sqlite3.Error as err:
+        print(f"Could not connect to database: {err}")
+        return None
 
-def seed_products(admin_id):
-    """Seed initial products"""
-    conn = get_db_connection()
-    if conn:
-        cursor = conn.cursor()
-        try:
-            # Get category IDs
-            cursor.execute("SELECT id, name FROM category")
-            categories = {name: id for id, name in cursor.fetchall()}
-            
-            # List of products with category names
-            products = [
-                # Tools Category
-                ("HT001", "Hammer - 22oz", "Ball-peen hammer", 22.99, 30, 15, "Tools"),
-                ("SD002", "Screwdriver - Phillips #2", "Insulated screwdriver", 4.99, 50, 20, "Tools"),
-                ("AW003", "Adjustable Wrench - 6\"", "Mini adjustable wrench", 6.99, 60, 30, "Tools"),
-                ("CP004", "Cable Puller", "Cable pulling tool", 9.99, 25, 15, "Tools"),
-                ("DL005", "Power Drill - 18V", "Cordless power drill", 89.99, 20, 10, "Tools"),
-                ("SW006", "Circular Saw", "7-1/4\" circular saw", 129.99, 15, 8, "Tools"),
-                ("MT007", "Measuring Tape - 25ft", "Professional measuring tape", 9.99, 60, 30, "Tools"),
-                ("CS008", "Chisel Set - 4pc", "Wood chisel set", 34.99, 25, 15, "Tools"),
-                ("SB009", "Toolbox - Large", "Heavy-duty toolbox", 45.99, 20, 10, "Tools"),
-                
-                # Hardware Category
-                ("HW001", "Assorted Screws", "Box of 100 screws", 9.99, 200, 100, "Hardware"),
-                ("HW002", "Wall Anchors", "Plastic anchors, pack of 50", 5.99, 150, 75, "Hardware"),
-                ("HW003", "Door Hinges", "3-inch brass hinges", 7.99, 100, 50, "Hardware"),
-                ("HW004", "Cabinet Handles", "Modern cabinet pulls", 4.99, 120, 60, "Hardware"),
-                ("HW005", "Nails Assortment", "Various size nails", 12.99, 150, 75, "Hardware"),
-                ("HW006", "Corner Brackets", "Metal L brackets", 3.99, 200, 100, "Hardware"),
-                ("HW007", "Door Lock Set", "Complete door lock kit", 29.99, 30, 15, "Hardware"),
-                ("HW008", "Chain - 3ft", "Heavy duty chain", 8.99, 80, 40, "Hardware"),
-                
-                # Plumbing Category
-                ("PB001", "PVC Pipe 2\"", "2-inch PVC pipe, 10 feet", 12.99, 40, 25, "Plumbing"),
-                ("PB002", "Pipe Wrench", "14-inch pipe wrench", 29.99, 20, 10, "Plumbing"),
-                ("PB003", "Sink Faucet", "Kitchen sink faucet", 79.99, 15, 8, "Plumbing"),
-                ("PB004", "Drain Snake", "25ft drain auger", 24.99, 20, 10, "Plumbing"),
-                ("PB005", "Pipe Fittings Kit", "Assorted fittings", 19.99, 50, 25, "Plumbing"),
-                ("PB006", "Toilet Repair Kit", "Complete repair kit", 22.99, 30, 15, "Plumbing"),
-                ("PB007", "Water Filter", "Under-sink filter", 49.99, 20, 10, "Plumbing"),
-                ("PB008", "Shower Head", "Adjustable shower head", 34.99, 25, 12, "Plumbing"),
-                
-                # Electrical Category
-                ("EL001", "Wire Bundle", "14-gauge copper wire, 50 feet", 29.99, 25, 15, "Electrical"),
-                ("EL002", "Outlet Box", "Single gang electrical box", 2.99, 100, 50, "Electrical"),
-                ("EL003", "Light Switch", "Single pole switch", 4.99, 80, 40, "Electrical"),
-                ("EL004", "LED Bulbs 4pk", "60W equivalent LED", 12.99, 60, 30, "Electrical"),
-                ("EL005", "Circuit Breaker", "20 amp breaker", 8.99, 40, 20, "Electrical"),
-                ("EL006", "Extension Cord", "25ft heavy duty", 19.99, 35, 18, "Electrical"),
-                ("EL007", "Wire Stripper", "Automatic wire stripper", 14.99, 30, 15, "Electrical"),
-                ("EL008", "Junction Box", "4-inch square box", 3.99, 90, 45, "Electrical"),
-                
-                # Paint Category
-                ("PT001", "White Paint", "Interior latex paint, 1 gallon", 34.99, 20, 10, "Paint"),
-                ("PT002", "Paint Roller Set", "9-inch roller with tray", 14.99, 30, 20, "Paint"),
-                ("PT003", "Paint Brushes", "5pc brush set", 16.99, 40, 20, "Paint"),
-                ("PT004", "Primer - White", "All-purpose primer", 29.99, 25, 12, "Paint"),
-                ("PT005", "Paint Sprayer", "Electric paint sprayer", 89.99, 15, 8, "Paint"),
-                ("PT006", "Drop Cloth", "9x12 canvas drop cloth", 9.99, 50, 25, "Paint"),
-                ("PT007", "Painters Tape", "2-inch blue tape", 5.99, 100, 50, "Paint"),
-                ("PT008", "Paint Thinner", "1 gallon thinner", 12.99, 30, 15, "Paint"),
-                
-                # Lumber Category
-                ("LM001", "2x4 Stud", "8ft pressure treated", 5.99, 200, 100, "Lumber"),
-                ("LM002", "Plywood Sheet", "4x8 3/4\" plywood", 39.99, 30, 15, "Lumber"),
-                ("LM003", "Deck Boards", "5/4 deck board", 8.99, 150, 75, "Lumber"),
-                ("LM004", "Fence Pickets", "6ft cedar picket", 6.99, 200, 100, "Lumber"),
-                ("LM005", "MDF Board", "4x8 medium density", 29.99, 25, 12, "Lumber"),
-                ("LM006", "Trim Molding", "8ft crown molding", 12.99, 80, 40, "Lumber"),
-                ("LM007", "OSB Board", "4x8 OSB sheet", 22.99, 40, 20, "Lumber"),
-                ("LM008", "Cedar Planks", "1x6 cedar board", 15.99, 100, 50, "Lumber"),
-                
-                # Garden Category
-                ("GD001", "Garden Shovel", "Steel garden shovel", 27.99, 15, 10, "Garden"),
-                ("GD002", "Pruning Shears", "Bypass pruning shears", 19.99, 25, 15, "Garden"),
-                ("GD003", "Garden Hose", "50ft flexible hose", 34.99, 30, 15, "Garden"),
-                ("GD004", "Leaf Rake", "24-inch leaf rake", 16.99, 35, 18, "Garden"),
-                ("GD005", "Garden Gloves", "Leather work gloves", 9.99, 60, 30, "Garden"),
-                ("GD006", "Wheelbarrow", "6 cubic ft capacity", 89.99, 10, 5, "Garden"),
-                ("GD007", "Plant Food", "All-purpose fertilizer", 14.99, 40, 20, "Garden"),
-                ("GD008", "Garden Trowel", "Hand trowel", 8.99, 45, 22, "Garden"),
-                ("GD009", "Sprinkler", "Oscillating sprinkler", 24.99, 25, 12, "Garden"),
-                ("GD010", "Weed Killer", "1 gallon concentrate", 19.99, 30, 15, "Garden")
-            ]
+def seed_admin(cursor):
+    """Seed admin table with additional staff members"""
+    admins = [
+        ('manager', 'manager123', 'manager@hardware.com', 'admin'),
+        ('sales1', 'sales123', 'sales1@hardware.com', 'user'),
+        ('sales2', 'sales123', 'sales2@hardware.com', 'user'),
+    ]
+    
+    cursor.executemany("""
+        INSERT OR IGNORE INTO admin (username, password, email, role)
+        VALUES (?, ?, ?, ?)
+    """, admins)
+    print("Admin table seeded successfully!")
 
-            # Insert products with category IDs
-            for ref, name, desc, price, qty, min_qty, cat_name in products:
-                cursor.execute("""
-                    INSERT OR IGNORE INTO products 
-                    (reference, name, description, price, quantity, min_quantity, category_id, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (ref, name, desc, price, qty, min_qty, categories[cat_name], admin_id))
-            
-            conn.commit()
-            print("Products seeded successfully")
-            
-        except sqlite3.Error as err:
-            print(f"Error seeding products: {err}")
-        finally:
-            conn.close()
+def seed_categories(cursor):
+    """Seed categories table with hardware store categories"""
+    categories = [
+        ('Hand Tools', 'Manual tools for various tasks', 1),
+        ('Power Tools', 'Electric and battery-powered tools', 1),
+        ('Fasteners', 'Screws, nails, and other fastening materials', 1),
+        ('Plumbing', 'Pipes, fittings, and plumbing supplies', 1),
+        ('Electrical', 'Wiring, fixtures, and electrical supplies', 1),
+        ('Hardware', 'General hardware items and fittings', 1),
+        ('Safety Equipment', 'Personal protective equipment and safety gear', 1),
+        ('Paint & Supplies', 'Paints, brushes, and painting accessories', 1)
+    ]
+    
+    cursor.executemany("""
+        INSERT OR IGNORE INTO category (name, description, created_by)
+        VALUES (?, ?, ?)
+    """, categories)
+    print("Categories table seeded successfully!")
+    return {name: cursor.execute("SELECT id FROM category WHERE name = ?", (name,)).fetchone()[0] 
+            for name, _, _ in categories}
 
-def seed_sample_users():
-    """Seed sample users for testing"""
-    conn = get_db_connection()
-    if conn:
-        cursor = conn.cursor()
-        try:
-            # Create regular users with loyalty points and purchases
-            users = [
-                ("John Smith", "123-456-7890", "john@email.com", 10, 150.50),  # 10 loyalty points
-                ("Sarah Johnson", "234-567-8901", "sarah@email.com", 30, 450.75),  # 30 loyalty points
-                ("Mike Wilson", "345-678-9012", "mike@email.com", 15, 200.25),  # 15 loyalty points
-                ("Emma Davis", "456-789-0123", "emma@email.com", 25, 350.00)   # 25 loyalty points
-            ]
-            
-            # Insert users
-            for name, phone, email, loyalty_points, total_spent in users:
-                cursor.execute("""
-                    INSERT INTO users (name, phone, email, loyalty_points, total_spent)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (name, phone, email, loyalty_points, total_spent))
-            
-            # Get products for purchases
-            cursor.execute("SELECT id, price FROM products")
-            products = cursor.fetchall()
-            
-            if products:
-                # Create purchases for users
-                cursor.execute("SELECT id FROM users")
-                user_ids = cursor.fetchall()
-                
-                import random
-                from datetime import datetime, timedelta
-                
-                # Create purchases over the last 30 days
-                for user_id in user_ids:
-                    # Number of purchases (10-30 purchases per user)
-                    num_purchases = random.randint(10, 30)
-                    
-                    for _ in range(num_purchases):
-                        # Create the purchase first
-                        total_amount = 0
-                        points_earned = random.randint(1, 5)  # Random points earned
-                        
-                        cursor.execute("""
-                            INSERT INTO purchases (user_id, total_amount, points_earned)
-                            VALUES (?, ?, ?)
-                        """, (user_id[0], total_amount, points_earned))
-                        
-                        purchase_id = cursor.lastrowid
-                        
-                        # Add 1-3 items to each purchase
-                        num_items = random.randint(1, 3)
-                        purchase_total = 0
-                        
-                        for _ in range(num_items):
-                            # Random product and quantity
-                            product = random.choice(products)
-                            quantity = random.randint(1, 5)
-                            price_per_unit = product[1]
-                            item_total = price_per_unit * quantity
-                            purchase_total += item_total
-                            
-                            cursor.execute("""
-                                INSERT INTO purchase_items (purchase_id, product_id, quantity, price_per_unit)
-                                VALUES (?, ?, ?, ?)
-                            """, (purchase_id, product[0], quantity, price_per_unit))
-                        
-                        # Update the purchase total
-                        cursor.execute("""
-                            UPDATE purchases 
-                            SET total_amount = ?
-                            WHERE id = ?
-                        """, (purchase_total, purchase_id))
-                        
-                        # Update user's total_spent
-                        cursor.execute("""
-                            UPDATE users 
-                            SET total_spent = total_spent + ?
-                            WHERE id = ?
-                        """, (purchase_total, user_id[0]))
-            
-            conn.commit()
-            print("Sample users and their purchases seeded successfully")
-            
-        except sqlite3.Error as err:
-            print(f"Error seeding sample users: {err}")
-        finally:
-            conn.close()
+def seed_products(cursor, category_map):
+    """Seed products table with hardware store inventory"""
+    products = [
+        # Hand Tools
+        ('HT001', 'Hammer - 16oz', 'Standard claw hammer', 24.99, 50, 10, category_map['Hand Tools'], 1),
+        ('HT002', 'Screwdriver Set', '6-piece precision set', 19.99, 40, 15, category_map['Hand Tools'], 1),
+        ('HT003', 'Adjustable Wrench', '10-inch adjustable wrench', 16.99, 45, 12, category_map['Hand Tools'], 1),
+        
+        # Power Tools
+        ('PT001', 'Cordless Drill - 18V', 'With battery and charger', 149.99, 25, 8, category_map['Power Tools'], 1),
+        ('PT002', 'Circular Saw', '7-1/4 inch blade', 129.99, 20, 5, category_map['Power Tools'], 1),
+        ('PT003', 'Impact Driver Kit', '20V with accessories', 179.99, 15, 5, category_map['Power Tools'], 1),
+        
+        # Fasteners
+        ('FT001', 'Wood Screws 1.5"', 'Box of 100', 8.99, 150, 50, category_map['Fasteners'], 1),
+        ('FT002', 'Drywall Anchors', 'Pack of 50', 6.99, 100, 30, category_map['Fasteners'], 1),
+        ('FT003', 'Deck Screws 2.5"', 'Box of 50', 12.99, 4, 20, category_map['Fasteners'], 1),  # Low stock
+        
+        # Plumbing
+        ('PL001', 'PVC Pipe 2"', '10 ft length', 15.99, 60, 20, category_map['Plumbing'], 1),
+        ('PL002', 'Pipe Wrench', '14-inch heavy duty', 34.99, 25, 8, category_map['Plumbing'], 1),
+        
+        # Electrical
+        ('EL001', 'Wire Stripper', 'Professional grade', 22.99, 30, 10, category_map['Electrical'], 1),
+        ('EL002', 'Electrical Tape', 'Pack of 3', 7.99, 80, 25, category_map['Electrical'], 1),
+        
+        # Hardware
+        ('HW001', 'Door Hinges', 'Brass finish, pair', 9.99, 60, 20, category_map['Hardware'], 1),
+        ('HW002', 'Cabinet Pulls', 'Modern style, 5-pack', 16.99, 40, 15, category_map['Hardware'], 1),
+        
+        # Safety Equipment
+        ('SF001', 'Safety Glasses', 'ANSI certified', 12.99, 75, 25, category_map['Safety Equipment'], 1),
+        ('SF002', 'Work Gloves', 'Leather, large', 19.99, 50, 20, category_map['Safety Equipment'], 1),
+        
+        # Paint & Supplies
+        ('PS001', 'Paint Brush Set', '3-piece premium', 24.99, 35, 12, category_map['Paint & Supplies'], 1),
+        ('PS002', 'Paint Roller Kit', 'With tray and covers', 18.99, 45, 15, category_map['Paint & Supplies'], 1)
+    ]
+    
+    cursor.executemany("""
+        INSERT OR IGNORE INTO products 
+        (reference, name, description, price, quantity, min_quantity, category_id, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, products)
+    print("Products table seeded successfully!")
+    return {ref: (cursor.execute("SELECT id, price FROM products WHERE reference = ?", (ref,)).fetchone())
+            for ref, _, _, _, _, _, _, _ in products}
 
-def seed_all():
-    """Seed all initial data"""
-    conn = get_db_connection()
-    if conn:
-        try:
-            # First seed the categories and products
-            admin_id = create_admin('admin', 'admin123', 'admin')
-            seed_categories(admin_id)
-            seed_products(admin_id)
-            
-            # Then seed the users and their purchases
-            seed_sample_users()
-            
-            print("All data seeded successfully")
-            
-        except Exception as e:
-            print(f"Error seeding data: {e}")
-        finally:
-            conn.close()
+def seed_users(cursor):
+    """Seed users table with customer data"""
+    users = [
+        ('Mike Johnson', '555-0101', 'mike@email.com', 200, 1500.0, 1),
+        ('Sarah Wilson', '555-0102', 'sarah@email.com', 150, 1200.0, 1),
+        ('Tom Anderson', '555-0103', 'tom@email.com', 300, 2000.0, 1),
+        ('Lisa Cooper', '555-0104', 'lisa@email.com', 100, 800.0, 1),
+        ('Bill Martinez', '555-0105', 'bill@email.com', 250, 1800.0, 1)
+    ]
+    
+    cursor.executemany("""
+        INSERT OR IGNORE INTO users 
+        (name, phone, email, loyalty_points, total_spent, created_by)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, users)
+    print("Users table seeded successfully!")
+    return {name: cursor.execute("SELECT id FROM users WHERE name = ?", (name,)).fetchone()[0] 
+            for name, _, _, _, _, _ in users}
 
-def create_admin(username, password, role='admin'):
-    """Create an admin user with the specified credentials"""
-    conn = get_db_connection()
-    if conn:
-        cursor = conn.cursor()
-        try:
-            # Insert or update admin
+def seed_purchases(cursor, user_map, product_map):
+    """Seed purchases and purchase_details tables"""
+    # Generate purchases for each user
+    for user_name, user_id in user_map.items():
+        # Create 3-5 purchases for each user
+        for _ in range(random.randint(3, 5)):
+            # Select random products for this purchase
+            purchase_products = random.sample(list(product_map.items()), random.randint(2, 5))
+            purchase_total = 0
+            purchase_details = []
+            
+            # Calculate purchase details
+            for product_ref, (product_id, price) in purchase_products:
+                quantity = random.randint(1, 3)
+                total_price = price * quantity
+                purchase_total += total_price
+                purchase_details.append((product_id, quantity, price, total_price))
+            
+            # Create purchase record
+            points_earned = int(purchase_total // 10)  # 1 point per $10 spent
             cursor.execute("""
-                INSERT OR REPLACE INTO admin (username, password, role)
-                VALUES (?, ?, ?)
-            """, (username, password, role))
+                INSERT INTO purchases (user_id, total_amount, points_earned, created_by)
+                VALUES (?, ?, ?, ?)
+            """, (user_id, purchase_total, points_earned, 1))
             
-            conn.commit()
-            admin_id = cursor.lastrowid
-            print(f"Admin user '{username}' created/updated successfully")
-            return admin_id
+            purchase_id = cursor.lastrowid
             
-        except sqlite3.Error as err:
-            print(f"Error creating admin user: {err}")
-            return None
-        finally:
-            conn.close()
+            # Create purchase details
+            cursor.executemany("""
+                INSERT INTO purchase_details 
+                (purchase_id, product_id, quantity, unit_price, total_price)
+                VALUES (?, ?, ?, ?, ?)
+            """, [(purchase_id, prod_id, qty, price, total) for prod_id, qty, price, total in purchase_details])
+    
+    print("Purchases and purchase details tables seeded successfully!")
+
+def seed_database():
+    """Main function to seed all tables"""
+    conn = get_db_connection()
+    if not conn:
+        return
+    
+    cursor = conn.cursor()
+    
+    try:
+        # Seed each table
+        seed_admin(cursor)
+        category_map = seed_categories(cursor)
+        product_map = seed_products(cursor, category_map)
+        user_map = seed_users(cursor)
+        seed_purchases(cursor, user_map, product_map)
+        
+        conn.commit()
+        print("Database seeding completed successfully!")
+        
+    except sqlite3.Error as err:
+        print(f"Error seeding database: {err}")
+        conn.rollback()
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
-    seed_all()
+    seed_database()

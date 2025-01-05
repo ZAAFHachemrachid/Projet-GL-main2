@@ -90,14 +90,15 @@ def create_tables():
         )
     """)
 
-    # Create purchase items table
+    # Create purchase_details table
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS purchase_items (
+        CREATE TABLE IF NOT EXISTS purchase_details (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            purchase_id INTEGER,
-            product_id INTEGER,
+            purchase_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL,
             quantity INTEGER NOT NULL,
-            price_per_unit REAL NOT NULL,
+            unit_price REAL NOT NULL,
+            total_price REAL NOT NULL,
             FOREIGN KEY (purchase_id) REFERENCES purchases (id),
             FOREIGN KEY (product_id) REFERENCES products (id)
         )

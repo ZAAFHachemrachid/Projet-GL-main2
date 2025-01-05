@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from .forms import CreateForm, UpdateForm, DeleteForm, SearchForm
 from .product_table import ProductTable
+from .purchase_table import PurchaseTable
 from .product_manager import ProductManager
 
 class ProductManagementFrame(ctk.CTkFrame):
@@ -27,11 +28,41 @@ class ProductManagementFrame(ctk.CTkFrame):
         # Create table frame
         self.table_frame = ctk.CTkFrame(self)
         self.table_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
-        self.table_frame.grid_rowconfigure(0, weight=1)
+        self.table_frame.grid_rowconfigure(1, weight=1)  # Changed from 0 to 1 to accommodate buttons
         self.table_frame.grid_columnconfigure(0, weight=1)
         
-        # Create table
-        self.setup_table()
+        # Create table switching buttons
+        self.table_buttons_frame = ctk.CTkFrame(self.table_frame)
+        self.table_buttons_frame.grid(row=0, column=0, pady=5, padx=10, sticky="ew")
+        self.table_buttons_frame.grid_columnconfigure((0,1), weight=1)
+        
+        # Create buttons to switch between tables
+        self.product_button = ctk.CTkButton(
+            self.table_buttons_frame,
+            text="Product Table",
+            command=lambda: self.show_table("product"),
+            fg_color="#2ecc71",
+            hover_color="#27ae60"
+        )
+        self.product_button.grid(row=0, column=0, padx=2, sticky="ew")
+        
+        self.purchase_button = ctk.CTkButton(
+            self.table_buttons_frame,
+            text="Purchase Table",
+            command=lambda: self.show_table("purchase"),
+            fg_color="#3498db",
+            hover_color="#2980b9"
+        )
+        self.purchase_button.grid(row=0, column=1, padx=2, sticky="ew")
+        
+        # Create tables container
+        self.tables_container = ctk.CTkFrame(self.table_frame, fg_color="transparent")
+        self.tables_container.grid(row=1, column=0, sticky="nsew")
+        self.tables_container.grid_rowconfigure(0, weight=1)
+        self.tables_container.grid_columnconfigure(0, weight=1)
+        
+        # Create tables
+        self.setup_tables()
         
         # Show create form by default
         self.show_form("create")
@@ -77,10 +108,19 @@ class ProductManagementFrame(ctk.CTkFrame):
             "search": self.search_form
         }
     
-    def setup_table(self):
-        """Setup the product table"""
-        self.product_table = ProductTable(self.table_frame, self.product_manager)
-        self.product_table.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+    def setup_tables(self):
+        """Setup both product and purchase tables"""
+        self.product_table = ProductTable(self.tables_container, self.product_manager)
+        self.purchase_table = PurchaseTable(self.tables_container, self.product_manager)
+        
+        # Store tables in a dictionary for easy access
+        self.tables = {
+            "product": self.product_table,
+            "purchase": self.purchase_table
+        }
+        
+        # Show product table by default
+        self.show_table("product")
     
     def show_form(self, form_type):
         """Show the selected form and hide others"""
@@ -88,6 +128,13 @@ class ProductManagementFrame(ctk.CTkFrame):
             form.grid_remove()
         self.forms[form_type].grid(row=1, column=0, pady=10, padx=10, sticky="nsew")
     
+    def show_table(self, table_type):
+        """Show the selected table and hide the other"""
+        for table in self.tables.values():
+            table.grid_remove()
+        self.tables[table_type].grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+    
     def refresh_table(self):
-        """Refresh the product table"""
+        """Refresh both tables"""
         self.product_table.refresh()
+        self.purchase_table.refresh()
