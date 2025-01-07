@@ -118,31 +118,25 @@ class ProductTable(ctk.CTkFrame):
             self._sort_column = column
             self._sort_reverse = False
         
-        # Get all items
-        items = [(self.tree.item(item)["values"], item) for item in self.tree.get_children()]
+        # Update the current search parameters with sort info
+        if hasattr(self.product_manager, 'current_search'):
+            self.product_manager.current_search['sort_by'] = {
+                'column': self._sort_column,
+                'reverse': self._sort_reverse
+            }
+        else:
+            self.product_manager.current_search = {
+                'search_term': None,
+                'category': None,
+                'stock_status': None,
+                'sort_by': {
+                    'column': self._sort_column,
+                    'reverse': self._sort_reverse
+                }
+            }
         
-        # Get column index
-        col_index = list(self.columns.keys()).index(column)
-        
-        # Sort items
-        items.sort(
-            key=lambda x: (
-                float(x[0][col_index]) if column in ['Price', 'Quantity', 'Min Quantity'] 
-                else str(x[0][col_index]).lower()
-            ),
-            reverse=self._sort_reverse
-        )
-        
-        # Rearrange items in sorted order
-        for index, (values, item) in enumerate(items):
-            self.tree.move(item, "", index)
-        
-        # Update headings to show sort order
-        for col in self.columns:
-            if col == column:
-                self.tree.heading(col, text=f"{col} {'↓' if self._sort_reverse else '↑'}")
-            else:
-                self.tree.heading(col, text=col)
+        # Refresh the table to apply the sort
+        self.refresh()
     
     def refresh(self):
         """Refresh table data"""
@@ -156,10 +150,10 @@ class ProductTable(ctk.CTkFrame):
         # Fetch products based on search parameters
         if search_params:
             products = self.product_manager.search_products(
-                search_term=search_params['search_term'],
-                category=search_params['category'],
-                stock_status=search_params['stock_status'],
-                sort_by=search_params['sort_by']
+                search_term=search_params.get('search_term'),
+                category=search_params.get('category'),
+                stock_status=search_params.get('stock_status'),
+                sort_by=search_params.get('sort_by')
             )
         else:
             products = self.product_manager.get_all_products()
@@ -182,3 +176,11 @@ class ProductTable(ctk.CTkFrame):
         
         # Configure tag for low stock items
         self.tree.tag_configure('low_stock', foreground='red')
+        
+        # Update column headers to show sort order
+        if hasattr(self, '_sort_column'):
+            for col in self.columns:
+                if col == self._sort_column:
+                    self.tree.heading(col, text=f"{col} {'↓' if self._sort_reverse else '↑'}")
+                else:
+                    self.tree.heading(col, text=col)

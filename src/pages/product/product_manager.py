@@ -144,4 +144,71 @@ class ProductManager:
             messagebox.showerror("Error", f"Error loading products: {e}")
             return []
     
-  
+    def search_products(self, search_term=None, category=None, stock_status=None, sort_by=None):
+        """
+        Search products based on various criteria
+        
+        Args:
+            search_term (str): Search term to match against product name or SKU
+            category (str): Category name to filter products
+            stock_status (str): Filter by stock status ('In Stock', 'Low Stock', 'All')
+            sort_by (str): Sort option (e.g., "Price (Low-High)")
+            
+        Returns:
+            list: List of matching products
+        """
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            query = """
+                SELECT p.id, p.reference, p.name, p.description, p.price, p.quantity, p.min_quantity, c.name
+                FROM products p
+                LEFT JOIN category c ON p.category_id = c.id
+                WHERE 1=1
+            """
+            params = []
+            
+            if search_term:
+                query += """ AND (
+                    LOWER(p.name) LIKE LOWER(?)
+                    OR LOWER(p.reference) LIKE LOWER(?)
+                )"""
+                search_pattern = f"%{search_term}%"
+                params.extend([search_pattern, search_pattern])
+            
+            if category and category != "All":
+                query += " AND c.name = ?"
+                params.append(category)
+            
+            if stock_status:
+                if stock_status == "Low Stock":
+                    query += " AND p.quantity > 0 AND p.quantity <= p.min_quantity"
+                elif stock_status == "In Stock":
+                    query += " AND p.quantity > p.min_quantity"
+            
+            # Handle sorting
+            if sort_by:
+                if sort_by == "Name (A-Z)":
+                    query += " ORDER BY p.name ASC"
+                elif sort_by == "Name (Z-A)":
+                    query += " ORDER BY p.name DESC"
+                elif sort_by == "Price (Low-High)":
+                    query += " ORDER BY p.price ASC"
+                elif sort_by == "Price (High-Low)":
+                    query += " ORDER BY p.price DESC"
+                elif sort_by == "Stock (Low-High)":
+                    query += " ORDER BY p.quantity ASC"
+                elif sort_by == "Stock (High-Low)":
+                    query += " ORDER BY p.quantity DESC"
+            else:
+                query += " ORDER BY p.name ASC"
+            
+            cursor.execute(query, params)
+            products = cursor.fetchall()
+            conn.close()
+            return products
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error searching products: {e}")
+            return []
